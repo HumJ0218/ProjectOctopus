@@ -1,0 +1,3 @@
+﻿regex	.* common.js
+
+string	http://localhost:65000	example.js
