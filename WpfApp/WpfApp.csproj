@@ -90,6 +90,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="MainWindow.xaml.cefEvents.cs" />
     <Compile Include="ScriptRunner.xaml.cs">
       <DependentUpon>ScriptRunner.xaml</DependentUpon>
     </Compile>

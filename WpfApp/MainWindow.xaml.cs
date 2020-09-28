@@ -17,6 +17,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
@@ -29,42 +30,56 @@ namespace WpfApp
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly static string[][] serviceProgram = new[] {
-            new[]{  "./WebApplication.exe","./"},
-            new[]{ "../../../../WebApplication/bin/x64/Debug/netcoreapp3.1/WebApplication.exe","../../../../WebApplication"},
-        };
-
+        private static int httpPort = 0;
         private ScriptRunner sr = null;
 
         public MainWindow()
         {
+            httpPort = new Random().Next(5000) + 60000;
+
             Task.Run(delegate ()
             {
-                var pf = serviceProgram.Select(m => new
+                var fi = new FileInfo("./WebApplication.dll");
+                var di = new DirectoryInfo("./");
+
+                var si = new ProcessStartInfo()
                 {
-                    fi = new FileInfo(m[0]),
-                    di = new DirectoryInfo(m[1]),
-                }).First(m => m.fi.Exists && m.di.Exists);
+                    FileName = "dotnet.exe",
+                    Arguments = fi.FullName,
+                    CreateNoWindow = true,
+                    RedirectStandardError = true,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = false,
+                    WorkingDirectory = di.FullName,
+                };
+                si.Environment.Add("ASPNETCORE_URLS", $"http://localhost:{httpPort}");
+
+#if DEBUG
+                fi = new FileInfo("../../../../WebApplication/bin/x64/Debug/netcoreapp3.1/WebApplication.dll");
+                di = new DirectoryInfo("../../../../WebApplication");
+
+                si.Arguments = fi.FullName;
+                si.WorkingDirectory = di.FullName;
+                si.Environment.Add("ASPNETCORE_ENVIRONMENT", "Development");
+#endif
+
                 var p = new Process
                 {
-                    StartInfo = new ProcessStartInfo(pf.fi.FullName, "httpPort=65000")
-                    {
-                        FileName = pf.fi.FullName,
-                        Arguments = "httpPort=65000",
-                        CreateNoWindow = true,
-                        RedirectStandardError = true,
-                        RedirectStandardInput = true,
-                        RedirectStandardOutput = true,
-                        WindowStyle = ProcessWindowStyle.Hidden,
-                        UseShellExecute = false,
-                        WorkingDirectory = pf.di.FullName,
-                    },
+                    StartInfo = si,
                 };
                 p.OutputDataReceived += P_OutputDataReceived;
                 p.ErrorDataReceived += P_ErrorDataReceived;
+
+                Debug.WriteLine($"{nameof(ProcessStartInfo)} = {JsonConvert.SerializeObject(si)}");
+                Debug.WriteLine($"p.Start()");
                 p.Start();
 
+                Debug.WriteLine($"p.WaitForExit()");
                 p.WaitForExit();
+
+                Debug.WriteLine($"Environment.Exit(-1)");
                 Environment.Exit(-1);
             });
 
@@ -88,6 +103,7 @@ namespace WpfApp
             }
 
             InitializeComponent();
+            cwb.Language = XmlLanguage.GetLanguage("zh-cn");
 
             try
             {
@@ -120,12 +136,12 @@ namespace WpfApp
 
         private void P_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
-            Console.Error.WriteLine(e.Data);
+            Debug.WriteLine(e.Data);
         }
 
         private void P_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            Console.WriteLine(e.Data);
+            Debug.WriteLine(e.Data);
         }
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -199,90 +215,6 @@ namespace WpfApp
         private void BrowserShowDevTools()
         {
             cwb.ShowDevTools();
-        }
-
-        private void cwb_IsBrowserInitializedChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            if ((bool)e.NewValue == true)
-            {
-                Task.Run(delegate ()
-                {
-                    BrowserLoadPage("http://localhost:65000");
-
-                    var kahc = new HttpClient();
-                    while (true)
-                    {
-                        try
-                        {
-                            kahc.GetAsync("http://localhost:65000/KeepAlive").Wait(1000);
-                        }
-                        catch { }
-                        Thread.Sleep(1000);
-                    }
-                });
-            }
-        }
-
-        private void cwb_AddressChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            if (!(url is null))
-            {
-                url.Text = e.NewValue.ToString();
-            }
-        }
-
-        private void cwb_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
-        {
-
-        }
-
-        private void cwb_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
-        {
-            Dispatcher.Invoke(delegate ()
-            {
-                url.Text = e.Url;
-                url.Visibility = Visibility.Collapsed;
-            });
-        }
-
-        private void cwb_LoadError(object sender, LoadErrorEventArgs e)
-        {
-
-        }
-
-        private void cwb_LoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
-        {
-
-        }
-
-        private void cwb_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
-        {
-
-        }
-
-        private void cwb_StatusMessage(object sender, StatusMessageEventArgs e)
-        {
-
-        }
-
-        private void cwb_JavascriptMessageReceived(object sender, JavascriptMessageReceivedEventArgs e)
-        {
-
-        }
-
-        private void cwb_TitleChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            Title = e.NewValue.ToString();
-        }
-
-        private void cwb_VirtualKeyboardRequested(object sender, CefSharp.Wpf.VirtualKeyboardRequestedEventArgs e)
-        {
-
-        }
-
-        private void cwb_Paint(object sender, CefSharp.Wpf.PaintEventArgs e)
-        {
-
         }
     }
 }

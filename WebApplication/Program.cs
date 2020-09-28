@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -13,34 +14,60 @@ namespace WebApplication
 {
     public class Program
     {
-        internal static int HttpPort;
+        internal static bool killSelf = false;
+        internal static Task killSelfTask = null;
 
         public static void Main(string[] args)
         {
-            HttpPort = int.TryParse(args?.FirstOrDefault(m => m.StartsWith("httpPort="))?.Split('=')?[1], out var __) ? __ : 5000;
-
-            try
+            var webTask= Host.CreateDefaultBuilder(args).ConfigureWebHostDefaults(webBuilder =>
             {
-                CreateHostBuilder(args).Build().Run();
-            }
-            catch (Exception ex)
-            {
-                File.AppendAllLines($"./crashReport.{DateTime.Now:yyyyMMdd}.log", new string[]
-                {
-                            DateTime.Now.ToString(),
-                            ex.ToString(),
-                            ""
-                });
+                webBuilder.UseStartup<Startup>();
+            }).Build().RunAsync();
 
-                Environment.Exit(-1);
-            }
+            KillSelf();
+
+            webTask.Wait();
         }
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-            .ConfigureWebHostDefaults(webBuilder =>
+        internal static void KillSelf() {
+
+            killSelf = false;
+            Console.WriteLine("keep alive");
+            Thread.Sleep(10000);
+
+            if (killSelfTask is null)
             {
-                webBuilder.UseUrls($"http://localhost:{HttpPort}").UseStartup<Startup>();
-            });
+                killSelfTask = Task.Run(delegate ()
+                {
+                    while (true)
+                    {
+                        killSelf = true;
+                        Console.WriteLine("wait to kill");
+
+                        Thread.Sleep(1000);
+                        if (killSelf)
+                        {
+                            Console.WriteLine("kill?");
+                            Thread.Sleep(1000);
+
+                            if (killSelf)
+                            {
+                                Console.WriteLine("kill confirmed");
+                                Environment.Exit(0);
+                            }
+                            else
+                            {
+                                Console.WriteLine("alive");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("alive");
+                        }
+                    }
+                });
+            }
+
+        }
     }
 }
