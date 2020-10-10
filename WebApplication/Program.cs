@@ -1,14 +1,8 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace WebApplication
 {
@@ -19,7 +13,7 @@ namespace WebApplication
 
         public static void Main(string[] args)
         {
-            var webTask= Host.CreateDefaultBuilder(args).ConfigureWebHostDefaults(webBuilder =>
+            Task webTask = Host.CreateDefaultBuilder(args).ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseStartup<Startup>();
             }).Build().RunAsync();
@@ -29,7 +23,8 @@ namespace WebApplication
             webTask.Wait();
         }
 
-        internal static void KillSelf() {
+        internal static void KillSelf()
+        {
 
             killSelf = false;
             Console.WriteLine("keep alive");

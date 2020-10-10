@@ -3,25 +3,15 @@ using CefSharp.Wpf;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Markup;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace WpfApp
 {
@@ -39,10 +29,10 @@ namespace WpfApp
 
             Task.Run(delegate ()
             {
-                var fi = new FileInfo("./WebApplication.dll");
-                var di = new DirectoryInfo("./");
+                FileInfo fi = new FileInfo("./WebApplication.dll");
+                DirectoryInfo di = new DirectoryInfo("./");
 
-                var si = new ProcessStartInfo()
+                ProcessStartInfo si = new ProcessStartInfo()
                 {
                     FileName = "dotnet.exe",
                     Arguments = fi.FullName,
@@ -65,7 +55,7 @@ namespace WpfApp
                 si.Environment.Add("ASPNETCORE_ENVIRONMENT", "Development");
 #endif
 
-                var p = new Process
+                Process p = new Process
                 {
                     StartInfo = si,
                 };
@@ -83,13 +73,13 @@ namespace WpfApp
                 Environment.Exit(-1);
             });
 
-            var cefSettings = new CefSettings();
+            CefSettings cefSettings = new CefSettings();
             try
             {
                 cefSettings = JsonConvert.DeserializeObject<CefSettings>(File.ReadAllText("./cefSettings.json"));
                 cefSettings.BrowserSubprocessPath = System.IO.Path.GetFullPath(cefSettings.BrowserSubprocessPath);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 ;
             }
@@ -107,28 +97,30 @@ namespace WpfApp
 
             try
             {
-                var bs = JToken.Parse(File.ReadAllText("./browserSettings.json"));
-                var ibs = typeof(IBrowserSettings);
+                JToken bs = JToken.Parse(File.ReadAllText("./browserSettings.json"));
+                Type ibs = typeof(IBrowserSettings);
 
-                foreach (var p in ibs.GetProperties().Where(p=>p.CanWrite)) {
+                foreach (PropertyInfo p in ibs.GetProperties().Where(p => p.CanWrite))
+                {
                     try
                     {
-                        var v = bs[p.Name]?.ToObject(p.PropertyType);
+                        object v = bs[p.Name]?.ToObject(p.PropertyType);
                         if (v == null)
                         {
                             ;
                         }
-                        else {
+                        else
+                        {
                             p.SetValue(cwb.BrowserSettings, v);
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         ;
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 ;
             }
@@ -196,7 +188,7 @@ namespace WpfApp
             {
                 cwb.Load(address);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 ;
             }
