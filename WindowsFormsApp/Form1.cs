@@ -1,12 +1,14 @@
 ﻿using CefSharp;
 using CefSharp.WinForms;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.Drawing;
+using System.IO;
 using System.Linq;
-using System.Text;
+using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -14,26 +16,96 @@ namespace WindowsFormsApp
 {
     public partial class Form1 : Form
     {
-        ChromiumWebBrowser chromiumWebBrowser;
-        Stack<string> BackUrls;
-        Stack<string> FowardUrls;
+        private ChromiumWebBrowser chromiumWebBrowser;
+        private Stack<string> BackUrls;
+        private Stack<string> FowardUrls;
+        private Dictionary<Guid, ICrawlerPlugin> CrawlerPlugins;
 
         public Form1()
         {
             InitializeComponent();
 
-            CreateChromiumWebBrowser();
+            CreateChromiumWebBrowser(out Action AfterInitializeComponent);
+            AfterInitializeComponent();
+
+            LoadPlugins("./plugins");
         }
 
-        private void CreateChromiumWebBrowser()
+        private void LoadPlugins(string pluginsPath)
         {
+            List<ICrawlerPlugin> plugins = new List<ICrawlerPlugin>();
+
+            Directory.CreateDirectory(pluginsPath);
+            foreach (string file in Directory.GetFiles(pluginsPath, "*.dll"))
+            {
+                try
+                {
+                    Assembly asm = Assembly.LoadFrom(file);
+                    IEnumerable<Type> types = asm.GetTypes().Where(t => t.GetInterfaces().Any(i => i.Name == nameof(ICrawlerPlugin)));
+
+                    foreach (Type type in types)
+                    {
+                        try
+                        {
+                            ICrawlerPlugin instance = type.GetConstructor(new Type[0]).Invoke(new object[0]) as ICrawlerPlugin;
+                            instance.Initialize(chromiumWebBrowser);
+                            chromiumWebBrowser.JavascriptObjectRepository.Register(instance.JsObjectName, instance, false);
+
+                            plugins.Add(instance);
+                        }
+                        catch (Exception ex)
+                        {
+                            ConsoleLogger.Error(ex);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Error(ex);
+                }
+            }
+
+            try
+            {
+                CrawlerPlugins = plugins.ToDictionary(p => p.ID, p => p);
+            }
+            catch (Exception ex)
+            {
+                CrawlerPlugins = new Dictionary<Guid, ICrawlerPlugin>();
+
+                ConsoleLogger.Error(ex);
+            }
+        }
+
+        private void CreateChromiumWebBrowser(out Action AfterInitializeComponent)
+        {
+            CefSettings cefSettings = new CefSettings();
+            try
+            {
+                cefSettings = JsonConvert.DeserializeObject<CefSettings>(File.ReadAllText("./cefSettings.json"));
+                cefSettings.BrowserSubprocessPath = Path.GetFullPath(cefSettings.BrowserSubprocessPath);
+            }
+            catch (Exception)
+            {
+                ;
+            }
+
+            if (!Cef.Initialize(cefSettings))
+            {
+                if (Environment.GetCommandLineArgs().Contains("--type=renderer"))
+                {
+                    Environment.Exit(0);
+                }
+            }
+
             BackUrls = new Stack<string>();
             FowardUrls = new Stack<string>();
 
             chromiumWebBrowser = new ChromiumWebBrowser("https://www.baidu.com/")
             {
                 Dock = DockStyle.Fill,
-                Margin = new Padding(0, toolStrip.Height, 0, 0)
+                Margin = new Padding(0, toolStrip.Height, 0, 0),
+
             };
 
             chromiumWebBrowser.TitleChanged += ChromiumWebBrowser_TitleChanged;
@@ -48,6 +120,41 @@ namespace WindowsFormsApp
             chromiumWebBrowser.IsBrowserInitializedChanged += ChromiumWebBrowser_IsBrowserInitializedChanged;
 
             panel.Controls.Add(chromiumWebBrowser);
+
+            AfterInitializeComponent = new Action(() =>
+             {
+                 //chromiumWebBrowser.Language = XmlLanguage.GetLanguage("zh-cn");
+
+                 try
+                 {
+                     JToken bs = JToken.Parse(File.ReadAllText("./browserSettings.json"));
+                     Type ibs = typeof(IBrowserSettings);
+
+                     foreach (PropertyInfo p in ibs.GetProperties().Where(p => p.CanWrite))
+                     {
+                         try
+                         {
+                             object v = bs[p.Name]?.ToObject(p.PropertyType);
+                             if (v == null)
+                             {
+                                 ;
+                             }
+                             else
+                             {
+                                 p.SetValue(chromiumWebBrowser.BrowserSettings, v);
+                             }
+                         }
+                         catch (Exception)
+                         {
+                             ;
+                         }
+                     }
+                 }
+                 catch (Exception)
+                 {
+                     ;
+                 }
+             });
         }
 
         #region 窗体事件
@@ -124,6 +231,18 @@ namespace WindowsFormsApp
             {
                 Text = e.Title;
             }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_TitleChanged(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_TitleChanged)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_LoadError(object sender, LoadErrorEventArgs e)
@@ -134,6 +253,18 @@ namespace WindowsFormsApp
                 e.ErrorText,
                 e.FailedUrl,
             });
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_LoadError(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_LoadError)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_AddressChanged(object sender, AddressChangedEventArgs e)
@@ -149,6 +280,18 @@ namespace WindowsFormsApp
             {
                 toolStripTextBox_cefAddress.Text = e.Address;
             }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_AddressChanged(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_AddressChanged)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_StatusMessage(object sender, StatusMessageEventArgs e)
@@ -162,6 +305,18 @@ namespace WindowsFormsApp
             {
                 toolStripStatusLabel_message.Text = e.Value;
             }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_StatusMessage(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_StatusMessage)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
@@ -246,6 +401,18 @@ namespace WindowsFormsApp
                         break;
                     }
             }
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_ConsoleMessage(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_ConsoleMessage)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
@@ -267,6 +434,18 @@ namespace WindowsFormsApp
                 toolStripProgressBar_loading.Visible = e.IsLoading;
                 toolStripStatusLabel_loading.Visible = e.IsLoading;
             }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_LoadingStateChanged(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_LoadingStateChanged)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
@@ -281,6 +460,23 @@ namespace WindowsFormsApp
             {
                 toolStripStatusLabel_loading.Text = $"{e.HttpStatusCode} {e.Url}";
             }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        chromiumWebBrowser.GetBrowser().MainFrame.ExecuteJavaScriptAsync($"CefSharp.BindObjectAsync('{plugin.JsObjectName}')");
+                        Thread.Sleep(100);
+                        plugin.ChromiumWebBrowser_FrameLoadEnd(sender, e);
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_FrameLoadEnd)} : {ex}");
+                    }
+                });
+            }
         }
 
         private void ChromiumWebBrowser_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
@@ -295,6 +491,18 @@ namespace WindowsFormsApp
             {
                 toolStripStatusLabel_loading.Text = $"{e.TransitionType} {e.Url}";
             }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_FrameLoadStart(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_FrameLoadStart)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_JavascriptMessageReceived(object sender, JavascriptMessageReceivedEventArgs e)
@@ -303,16 +511,54 @@ namespace WindowsFormsApp
             {
                 e.Message,
             });
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_JavascriptMessageReceived(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_JavascriptMessageReceived)} : {ex}");
+                }
+            }
         }
 
         private void ChromiumWebBrowser_IsBrowserInitializedChanged(object sender, EventArgs e)
         {
             ConsoleLogger.Debug(nameof(ChromiumWebBrowser_IsBrowserInitializedChanged) + " : " + new
             {
+                chromiumWebBrowser.IsBrowserInitialized
             });
+
+            Invoke(new Action(() =>
+            {
+                toolStripButton_devTools.Enabled = chromiumWebBrowser.IsBrowserInitialized;
+
+            }));
+
+            foreach (ICrawlerPlugin plugin in CrawlerPlugins.Values)
+            {
+                try
+                {
+                    plugin.ChromiumWebBrowser_IsBrowserInitializedChanged(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    ConsoleLogger.Warn($"{plugin.Title}.{nameof(plugin.ChromiumWebBrowser_IsBrowserInitializedChanged)} : {ex}");
+                }
+            }
         }
 
         #endregion
 
+        private void toolStripButton_devTools_Click(object sender, EventArgs e)
+        {
+            Invoke(new Action(() =>
+            {
+                chromiumWebBrowser.ShowDevTools();
+            }));
+        }
     }
 }

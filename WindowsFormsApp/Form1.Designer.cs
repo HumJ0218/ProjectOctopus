@@ -42,6 +42,7 @@
             this.toolStripButton4 = new System.Windows.Forms.ToolStripButton();
             this.toolStripButton5 = new System.Windows.Forms.ToolStripButton();
             this.panel = new System.Windows.Forms.Panel();
+            this.toolStripButton_devTools = new System.Windows.Forms.ToolStripButton();
             this.statusStrip.SuspendLayout();
             this.toolStrip.SuspendLayout();
             this.SuspendLayout();
@@ -62,7 +63,7 @@
             // toolStripStatusLabel_message
             // 
             this.toolStripStatusLabel_message.Name = "toolStripStatusLabel_message";
-            this.toolStripStatusLabel_message.Size = new System.Drawing.Size(941, 17);
+            this.toolStripStatusLabel_message.Size = new System.Drawing.Size(972, 17);
             this.toolStripStatusLabel_message.Spring = true;
             this.toolStripStatusLabel_message.Text = "toolStripStatusLabel_message";
             this.toolStripStatusLabel_message.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -88,7 +89,8 @@
             this.toolStripTextBox_cefAddress,
             this.toolStripSeparator1,
             this.toolStripButton4,
-            this.toolStripButton5});
+            this.toolStripButton5,
+            this.toolStripButton_devTools});
             this.toolStrip.Location = new System.Drawing.Point(0, 0);
             this.toolStrip.Name = "toolStrip";
             this.toolStrip.Size = new System.Drawing.Size(1264, 25);
@@ -127,6 +129,7 @@
             // 
             // toolStripTextBox_cefAddress
             // 
+            this.toolStripTextBox_cefAddress.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.toolStripTextBox_cefAddress.Name = "toolStripTextBox_cefAddress";
             this.toolStripTextBox_cefAddress.Size = new System.Drawing.Size(400, 25);
             this.toolStripTextBox_cefAddress.KeyDown += new System.Windows.Forms.KeyEventHandler(this.toolStripTextBox_cefAddress_KeyDown);
@@ -162,6 +165,16 @@
             this.panel.Name = "panel";
             this.panel.Size = new System.Drawing.Size(1264, 714);
             this.panel.TabIndex = 2;
+            // 
+            // toolStripButton_devTools
+            // 
+            this.toolStripButton_devTools.Enabled = false;
+            this.toolStripButton_devTools.Image = ((System.Drawing.Image)(resources.GetObject("toolStripButton_devTools.Image")));
+            this.toolStripButton_devTools.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButton_devTools.Name = "toolStripButton_devTools";
+            this.toolStripButton_devTools.Size = new System.Drawing.Size(109, 22);
+            this.toolStripButton_devTools.Text = "开发人员工具...";
+            this.toolStripButton_devTools.Click += new System.EventHandler(this.toolStripButton_devTools_Click);
             // 
             // Form1
             // 
@@ -200,6 +213,7 @@
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel_message;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel_loading;
         private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar_loading;
+        private System.Windows.Forms.ToolStripButton toolStripButton_devTools;
     }
 }
 
