@@ -247,7 +247,7 @@ namespace WindowsFormsApp
 
         private void ChromiumWebBrowser_LoadError(object sender, LoadErrorEventArgs e)
         {
-            ConsoleLogger.Debug(nameof(ChromiumWebBrowser_LoadError) + " : " + new
+            ConsoleLogger.Error(nameof(ChromiumWebBrowser_LoadError) + " : " + new
             {
                 e.ErrorCode,
                 e.ErrorText,
